@@ -25,6 +25,9 @@ contains the answer.
 **Why this target:**
 <!-- e.g. "One of my questions is about a topic only two documents mention, so
      I expect that one to be hard." -->
+For each question, I looked through the campus_life corpora and wrote a question based off a particular document. 
+I expect the system to retrieve each of those documents. One of the questions is kind of vague and the retrieved
+chunks may not include the answer
 
 ---
 
@@ -35,6 +38,8 @@ Every answer the system produces names at least one source document.
 **Why this target:**
 <!-- Why all five and not four? What about your setup makes that achievable —
      or what would have to go wrong for it not to be? -->
+I want to make sure every answers is grounded in evidence and not made up. Because of this, if the system
+produces an answer, there has to be a source document attached.
 
 ---
 
@@ -52,10 +57,15 @@ in at least 4 of 5 tries.
 **Why this target:**
 <!-- What did your distances look like when you set the cutoff in Milestone 4?
      Was there a clean gap, or did the two groups overlap? -->
+I want my system to have a certainty threshhold and to clearly communicate when it can't produce 
+a confident answer. It should say there isn't enough information to respond confidently. This 
+should happen almost every time an "OUT OF SCOPE" question arises. If something relevant is found, 
+even if not correct, we can allow for this to pass (however, this should be rare).
 
 ---
 
 ## 4. Something about your chunks
+Every sampled chunk should have about 317 characters. 
 
 <!-- YOU WRITE THIS ONE.
 
@@ -69,16 +79,14 @@ in at least 4 of 5 tries.
        - "No chunk is shorter than 200 characters, since anything below that
           in my corpus turned out to be a heading with no content under it." -->
 
-
-
 **Why this target:**
-
-
+The README says that every document in `campus_life` is about 317 characters. I expect most, if not all, 
+the chunks to be the same size as the documents since they are short and very specific on what they answer.
 
 ---
 
 ## 5. Your choice
-
+Every answer the system generates should be within 2 seconds.
 <!-- YOU WRITE THIS ONE TOO.
 
      Pick something you actually care about getting right. It could be about
@@ -87,10 +95,10 @@ in at least 4 of 5 tries.
      present — anything, as long as it names a number or an observable
      outcome. -->
 
-
-
 **Why this target:**
-
+I want to make sure the system is reliable and can answer questions confidently. Since there's only 88
+documents in the corpus, I expect the system to search through relevant chunks quickly and either
+give an answer or simply state there is no evidence.
 
 
 ---
