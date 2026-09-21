@@ -141,6 +141,11 @@ Sources retrieved: course_biol_160.txt, course_biol_160_workload.txt, course_eco
 | "how is campus orientation?" | YES | 0.529 |
 | "how much does laundry cost in aldridge?" | YES | 0.264 |
 | "when is it cold on campus?" | YES | 0.502 |
+| "What is the capital of Mongolia?" | NO | 0.825 |
+| "How do I change the oil in a diesel engine?" | NO | 0.934 |
+| "Who won the 1994 World Cup?" | NO | 0.886 |
+| "What is the recommended dosage of ibuprofen for a headache?" | NO | 0.884 |
+| "How do I write a for loop in Rust?" | NO | 0.896 |
 
 ## How I Used AI
 
