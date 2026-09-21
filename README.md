@@ -21,7 +21,7 @@ Kenneth Prado — campus_life corpus
 
 ## What This Does
 
-This project is a **Question and Answer** system over the `campus_life` corpus, containing 88 short posts written by students about life a college campus. You ask a question in plain English (natural language), such as "how much does laundry cost in Aldridge?" or "what's the workload like in BIO160?", and the system finds the most relevant posts and writes a short answer grounded in truth. If the question isn't covered by the corpus, the system abstains from making an inaccurate prediction and explicitly says so.
+This project is a **Question and Answer** system over the `campus_life` corpus, containing 88 short posts written by students about life on a college campus. You ask a question in plain English (natural language), such as "how much does laundry cost in Aldridge?" or "what's the workload like in BIO160?", and the system finds the most relevant posts and writes a short answer grounded in truth. If the question isn't covered by the corpus, the system abstains from making an inaccurate prediction and explicitly says so.
 <!-- Three or four sentences. Which corpus you picked, and the kinds of
      questions your system answers. Write it for someone who has never seen
      this repo.
