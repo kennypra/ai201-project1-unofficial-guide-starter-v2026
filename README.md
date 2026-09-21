@@ -33,7 +33,10 @@ Kenneth Prado — campus_life corpus
 
 **Overlap:** 0
 
-After running `python app.py index`, using chunk size 800 and overlap 120, I realized that every chunk was essentially a brand new document in the corpus. The longest chunk was 549 (suggesting the longest document was 549 characters long) and therefore telling us the current chunk size was too long. Further, the avearage chunk has 317 characters. I decided to make chunk size 600 in case we ever needed to extend our corpus and document larger than 549 was added. Since 600 is larger than any document, no overlap was needed either. The `/corpora` folder also mentioned that most of the documents had clear and concise statements that were within 1 sentence.
+Initially, I tried a chunk size of 200 and overlap of 50. However, after retrieving some chunks, I realized that some texts were cut off from important contexts. I decided this chunk size was too small and had to increase it.
+
+After running `python app.py index`, using chunk size 800 and overlap 120, I realized that every chunk was essentially a brand new document in the corpus. The longest chunk was 549 (suggesting the longest document was 549 characters long) and therefore telling us the current chunk size was too long. Further, the avearage chunk has 317 characters. I decided to make chunk size 600 in case we ever needed to extend our corpus and document larger than 549 was added. Since 600 is larger than any document, no overlap was needed either. The README.md in the `/corpora` folder also mentioned that most of the documents in `corpora/campus_life` had clear and concise statements that were within 1 sentence.
+
 <!-- What about YOUR documents made you pick these numbers? Short posts and
      long sectioned guides don't want the same chunking, and "800 seemed
      reasonable" earns nothing. Point at something you noticed when you read
@@ -109,11 +112,15 @@ Laundry costs $1.75 wash, $1.75 dry, app-based. On noise: moderate; the building
 <!-- One complete question and answer, pasted as text, with the source line
      visible. Milestone 4. -->
 
-**Question:**
+**Question:** python app.py ask "what's the workload like in BIO160"
 
 **Answer:**
 
-```
+```(best distance 0.443, cutoff 0.6)
+
+The workload for BIOL 160 Cell Biology is 9 to 11 hours a week, and it is the heaviest first-year course by reputation. It is also front-loaded, meaning the first month is heavier than the rest. (Source: `course_biol_160_workload.txt` and `course_biol_160.txt`)
+
+Sources retrieved: course_biol_160.txt, course_biol_160_workload.txt, course_econ_101_workload.txt, course_engl_205_workload.txt, course_phys_130_workload.txt
 ```
 
 **My relevance cutoff:**
@@ -129,7 +136,11 @@ Laundry costs $1.75 wash, $1.75 dry, app-based. On noise: moderate; the building
 
 | Question | In corpus? | Best distance |
 |---|---|---|
-|  |  |  |
+| "what's the workload like in BIO160" | YES | 0.443 |
+| "when is the atrium open?" | YES | 0.423 |
+| "how is campus orientation?" | YES | 0.529 |
+| "how much does laundry cost in aldridge?" | YES | 0.264 |
+| "when is it cold on campus?" | YES | 0.502 |
 
 ## How I Used AI
 
