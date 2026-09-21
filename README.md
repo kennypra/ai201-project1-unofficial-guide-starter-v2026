@@ -21,6 +21,7 @@ Kenneth Prado — campus_life corpus
 
 ## What This Does
 
+This project is a **Question and Answer** system over the `campus_life` corpus, containing 88 short posts written by students about life a college campus. You ask a question in plain English (natural language), such as "how much does laundry cost in Aldridge?" or "what's the workload like in BIO160?", and the system finds the most relevant posts and writes a short answer grounded in truth. If the question isn't covered by the corpus, the system abstains from making an inaccurate prediction and explicitly says so.
 <!-- Three or four sentences. Which corpus you picked, and the kinds of
      questions your system answers. Write it for someone who has never seen
      this repo.
@@ -158,9 +159,9 @@ Sources retrieved: course_biol_160.txt, course_biol_160_workload.txt, course_eco
 
      Milestone 5. -->
 
-**1.**
+**1.** I asked Claude to read the repo and explain what each file and folder does. It helped break the pipeline into five stages (loading, chunking, embedding, retrieval, generation), the three corpora, and the two assignments (criteria.md and README.md). That gave me my first working picture of what RAG is and what unit 1 asks for. I then read questions.py and wrote my own criteria in criteria.md, using the corpus README's numbers (88 documents, about 317 characters each). 
 
-**2.**
+**2.** For Milestone 3, I asked Claude how to choose a chunk size and overlap. I first tried 200/50, which turned 88 documents into 224 chunks, including one that was a single character. After seeing the results, I decided to try something else. Claude then wrote split_documents and a helper which keeps a document whole if it fits (i.e., smaler than chunk_size) and otherwise splits on paragraph breaks and repeats the title on each chunk. I set CHUNK_SIZE to 600 and CHUNK_OVERLAP to 0 so nothing in campus_life gets split. I added my own comment in the code, and I learned that my chunker's splitting branch never runs on this corpus since all documents are smaller than 600 characters.
 
 <!-- ── Stretch features ─────────────────────────────────────────────────────
      Doing one? Say so here BEFORE you start. A feature this README never
