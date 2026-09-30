@@ -252,11 +252,24 @@ Sources: `orientation_what_matters.txt` and `dining_the_atrium_followup.txt`
 
      Milestone 3. -->
 
+## Diagnoses
+
+**Criterion 4 (about 317 characters per chunk; 4b: 300 to 334).**
+Stage: chunking. This was a real miss on the numbers, not a scoring problem. The five sampled chunks measured 300, 379, 274, 367 and 516 characters, so only one of the five landed in the 300 to 334 range of 4b. The mechanism is my own chunking setup. With CHUNK_SIZE at 600, no document is split (the longest is 549 characters), so every chunk is one whole document and its length is just the length of that document. The 317 I used came from the corpus README as the *average* document length, and I wrote it as if every chunk would be near that number. An average says nothing about each chunk, so a per-chunk target near 317 could never hold with documents this varied. I wrote 4b to remove the vagueness of "about," but it still expects every chunk to sit near the mean, so it fails for the same reason and stays MISSED.
+
+**Criterion 5 (every answer within 2 seconds; 5b: recorded and 2 seconds or less).**
+Stage: none that I can prove. My run harness never recorded how long each answer took, so there is no timing to compare against the target. If I had to guess, latency would come from generation (the model call), but I have no data, so that is a guess and not a finding. Nothing in retrieval, embedding, chunking or loading is shown to be slow or fast.
+
+**Pattern.** Both misses come from the same mistake: I wrote the criteria before checking what my setup could measure or what my corpus actually looks like. Criterion 4 assumed uniform chunk lengths in a corpus where lengths vary, and criterion 5 assumed timing data my harness never collected. These are two symptoms of one problem in how I wrote the criteria, not two separate pipeline failures.
+
+**Criteria 1 to 3.** No misses. All three hit 5/5 on every run against targets of 4 of 5, 5 of 5 and 4 of 5, respectively. Criteria 1 and 3 may have been set low, since I never saw a run below the target. For criterion 3 the gap is wide: my worst in-corpus question had a best distance of 0.529 and my closest out-of-scope question had 0.825, with the cutoff at 0.6. I could tighten criterion 3 to 5 of 5.
+
+
 ## The Improvement
 
-**What I changed:**
+**What I changed:** Lowered CHUNK_SIZE in config.py from 600 to 350 (overlap stays 0) and re-ran `python app.py index`. Nothing else changed.
 
-**Why I picked it:**
+**Why I picked it:** **Why I picked it:** My diagnosis of criterion 4 named the chunking stage: at size 600 no document splits, so chunk length equals document length (274 to 516 in my samples). A smaller size makes the paragraph-splitting branch run for the first time on this corpus, so I can see whether chunk lengths get closer to 317 and whether smaller chunks hurt retrieval.
 
 <!-- Connect it to a specific diagnosis above in one sentence. If you can't,
      you picked a fix because it sounded impressive. -->
@@ -268,13 +281,27 @@ Sources: `orientation_what_matters.txt` and `dining_the_atrium_followup.txt`
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunk contains the answer | 4 of 5 | 3/5 | 1/5 | 1/5 | MISSED |
+| 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MISSED |
+| 4. Every sampled chunk should have about 317 characters | 5 of 5 | 0/5 | 0/5 | 0/5 | MISSED |
+| 4b. Every sampled chunk is between 300 and 334 characters | 5 of 5 | 1/5 | 2/5 | 1/5 | MISSED |
+| 5. Every answer the system generates should be within 2 seconds | 5 of 5 | 0/5 | 0/5 | 0/5 | MISSED |
+| 5b. Response time recorded and 2 seconds or less | 5 of 5 | 0/5 | 0/5 | 0/5 | MISSED |
 
 **Did it help?**
+
+No. The change made criterion 1 worse and did not fix anything else.
+
+Before (chunk size 600), criterion 1 scored 5/5 on all three runs. After (chunk size 350), it scored 3/5, 1/5 and 2/5, so it missed its 4 of 5 target on every run and went from MET to MISSED. Criteria 2 and 3 did not change: every answer still named a source (5/5 on all three runs), and the gate still refused all five out-of-scope questions, with best distances between 0.825 and 0.923 against a cutoff of 0.6. 
+
+Criteria 4 and 4b: are still MISSED. Criteria 5 and 5b are unchanged at 0/5 because nothing records response time.
+
+How I know: I changed only CHUNK_SIZE (600 to 350), re-indexed, and ran the same five questions three times each. The out-of-scope pass and the retrieved sources were identical across runs, so the drop in criterion 1 comes from the change and not from randomness in retrieval. The sources that changed from before are visible in the logs: for example, the orientation question now retrieves housing_aldridge_hall.txt, transit_shuttle.txt and transit_walking.txt instead of admin_wifi_and_accounts.txt, dining_the_atrium_followup.txt and money_jobs.txt, and the best distance for the atrium question moved from 0.423 to 0.378.
+
+Two questions failed on all three runs after the change: laundry in Aldridge and when it is cold on campus. The right source files were retrieved for both (housing_aldridge_hall_laundry.txt and winter_gear.txt).
+
+This matches the risk I wrote down before running it: my earlier 200/50 attempt cut answers away from their context, and a smaller chunk size does the same thing. Criterion 1 varied from run to run even though the retrieved sources did not, which suggests the pass/fail depends on the generated answer, not only on the chunks. I'm reporting the change as it came out: a smaller chunk size did not help, and the honest conclusion is that chunk size 600, which keeps each post whole, worked better for this corpus of short posts.
 
 <!-- Say plainly whether it did, and how you know. If it made things worse,
      say that — a change that backfired, honestly reported, earns full credit
@@ -282,6 +309,7 @@ Sources: `orientation_what_matters.txt` and `dining_the_atrium_followup.txt`
      tell.
 
      Milestone 4. -->
+
 
 ## What's Still Broken
 
