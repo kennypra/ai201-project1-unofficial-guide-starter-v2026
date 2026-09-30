@@ -193,12 +193,23 @@ Sources retrieved: course_biol_160.txt, course_biol_160_workload.txt, course_eco
 | 1. Retrieved chunk contains the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 | 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
 | 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
-| 4. Every sampled chunk should have about 317 characters | 5 of 5 | | | | |
-| 5. Every answer the system generates should be within 2 seconds | 5 of 5 | | | | |
+| 4. Every sampled chunk should have about 317 characters | 5 of 5 | 0/5| 0/5| 0/5 | MISSED |
+| 5. Every answer the system generates should be within 2 seconds | 5 of 5 | 0/5 | 0/5 | 0/5 | MISSED |
 
 <!-- Underneath, paste the REAL output for each criterion from one of your
      runs — the actual text your system produced, not a description of it.
      Name the file and function that produced it. -->
+
+### how is campus orientation? — run 1
+
+- Best distance: 0.5288 (passed the gate)
+- Sources retrieved: admin_wifi_and_accounts.txt, dining_the_atrium_followup.txt, housing_tamsin_court.txt, money_jobs.txt, orientation_what_matters.txt
+
+```
+Students say that most of orientation week is optional even though it is framed as if it isn't, and that the only two sessions worth attending are the meeting with your academic adviser and the library walkthrough because they save time later. They also mention that the club fair is useful for the first forty minutes of its four-hour duration, and that orientation does not tell you that The Atrium dining hall is picked clean by 1:15 and not restocked until the next morning. 
+
+Sources: `orientation_what_matters.txt` and `dining_the_atrium_followup.txt`
+```
 
 ## Verdicts
 
@@ -213,11 +224,13 @@ Sources retrieved: course_biol_160.txt, course_biol_160_workload.txt, course_eco
 
 | # | Criterion | Verdict | How I decided |
 |---|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
-| 4 |  |  |  |
-| 5 |  |  |  |
+| 1 | Retrieved chunk contains the answer | MET | Through every run, an answer was contained in the chunk. This was a great success because we received results we were expecting. |
+| 2 | Every answer names a source | MET | Every retrieved chunk also returned sources attached to the correct answer. This was expected with my questions since each was based on particular files. |
+| 3 | Gate stops out-of-corpus questions | MET | Every out of scope question was rejected and no answer was retrieved. This is great because the system abstains from answering questions it cannot support. Thus, it was a pass |
+| 4 | Original: Every sampled chunk should have about 317 characters | MISSED | After testing, I realized I chose a poor criterion. "about" is not specific and I can't confidently quantify what "about" means since different people could reach the same conclusion. For this reason, this criterion failed with every run and question. |
+| 4b | Revised: Every sampled chunk is between 300 and 334 characters | MISSED | Revision of #4. "About" had no fixed meaning, so two people could score the same chunk differently. This version gives a range anyone can check. |
+| 5 | Every answer the system generates should be within 2 seconds | MISSED | This was also a poor criterion since I wasn't able to accurately measure the length of duration per response. I didn't realize that I needed to add additional code to actually record this and return. For this reason, none of the trials or runs were able to count the time and this criterion failed. |
+| 5b | Revision of #5: Each answer's response time is recorded in the run output and is 2 seconds or less. | MISSED | The original couldn't be measured because my harness never recorded durations, and I can't add code, so no response time exists to check. This revision only adds the requirement that the time be recorded, so it is also MISSED. |
 
 ## Diagnoses
 
