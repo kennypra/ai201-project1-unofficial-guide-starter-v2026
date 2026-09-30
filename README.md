@@ -313,6 +313,15 @@ This matches the risk I wrote down before running it: my earlier 200/50 attempt 
 
 ## What's Still Broken
 
+**Criterion 1 (retrieved chunk contains the answer): missed after my change.**
+It scored 3/5, 1/5 and 2/5 against a target of 4 of 5, down from 5/5 on every run before. What I'd do about it: put CHUNK_SIZE back to 600, which met the target on all three runs. I stopped there because the improvement was a single change, and it made criterion 1 worse, so undoing it is the fix. Before I trust it, I'd also open the laundry and cold-weather source files and check whether their answers were split across chunks at size 350.
+
+**Criteria 4 and 4b (chunk length): still missed.**
+Chunk lengths in this corpus follow document lengths (274 to 516 in my sampled chunks, longest document 549), so a target near the 317 average cannot hold for every chunk. I would not chase this with more chunking changes, because the number was never something retrieval quality depends on. I stopped because fixing it would mean forcing documents to one length, which would split posts for no benefit.
+
+**Criteria 5 and 5b (response time): still missed.**
+My run harness never recorded how long each answer took, so there is no measurement to compare with the 2 second target. What I'd do: add timing around the generation call in run_eval.py and record it per answer. I stopped because this assignment doesn't allow me to add more code.
+
 <!-- For each criterion still missed after your fix: what you'd do about it,
      and why you stopped where you did.
 
@@ -322,6 +331,14 @@ This matches the risk I wrote down before running it: my earlier 200/50 attempt 
      Milestone 5. -->
 
 ## What I'd Do Differently
+
+**Criterion 4.** I took the corpus README's average document length (about 317) and wrote it as a per-chunk target. An average tells you nothing about each chunk. I'd write a criterion about something that affects answers, such as "no chunk is cut mid-sentence" or "the answer sentence and its title are in the same chunk."
+
+**Criterion 5.** I'd have checked that my harness records response times before writing a time target. A target you can't measure can't be met or missed.
+
+**Criterion 1.** I worded it as a retrieval check, but the pass/fail changed between runs while the retrieved sources stayed identical, so what I actually scored depended on the generated answer. I'd word it as a check on the retrieved chunk's text, such as "the retrieved chunks contain the expected answer," so a retrieval problem can't hide behind a generation one.
+
+**Targets for criteria 1 and 3.** Both scored 5/5 on every run before my change against targets of 4 of 5, so they were set low. I'd make criterion 3 5 of 5, since my gap between the worst in-corpus question (0.529) and the closest out-of-scope one (0.825) is large.
 
 <!-- Knowing what you know now — which of your five criteria would you write
      differently, and why?
