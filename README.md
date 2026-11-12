@@ -344,3 +344,41 @@ My run harness never recorded how long each answer took, so there is no measurem
      differently, and why?
 
      Milestone 5. -->
+
+## Capstone
+
+**What This Extends**
+
+This extends the RAG system: `app.py` (CLI), `store.py` (embedding and retrieval), `gate.py` (relevance cutoff) and `generate.py` (grounded answers) over the `campus_life` corpus. None of that changes. What's new is the operational layer `serve.py` was deliberately left without: structured logging, per-request timing, and measured token/cost numbers around every call to `ask_pipeline`, so a run leaves a record instead of only an answer on screen.
+
+**The Shape**
+
+Shape A — Deploy and Instrument. I'm adding a logging module that writes one JSON-lines record per request (timestamp, input, output, duration, status, tokens, and the error type/message on a failed run) to `logs/runs.jsonl`, and wiring it into `app.py::ask_pipeline` itself rather than into `serve.py` alone, so both the CLI and the `/ask` route log every call through the one shared function. I'm measuring real cost and latency over 10 runs rather than estimating them. Out of scope: no changes to retrieval, chunking, or the grounding prompt; no new features or UI; no hosted deploy — I'm running this locally with `RUNNING.md` documenting the one command, since this system needs its Chroma index on disk and a free hosted tier isn't worth fighting for that.
+
+**Running It**
+
+<!-- Path B: the one documented local command, from RUNNING.md. Milestone 3. -->
+
+**Instrumentation**
+
+<!-- Fields in each log record, log file location, ≥10 real entries pasted as text, ≥1 failed run. Milestone 3. -->
+
+**What It Costs**
+
+<!-- Measured per-run cost, method, 100/day arithmetic. Milestone 3 / 7. -->
+
+**Run Log and Verdicts**
+
+<!-- Baseline 5x3 table, pasted real output per criterion with file + function, MET/MISSED, diagnoses. Milestone 5 / 6. -->
+
+**The Improvement**
+
+<!-- What changed, why, second 5x3 table, did it help. Milestone 6. -->
+
+**What's Still Broken**
+
+<!-- Per remaining miss: what you'd do, why you stopped. Plus the one thing you'd do next with another unit, and why. Milestone 7. -->
+
+**How I Used AI**
+
+<!-- Two specific moments from the capstone work: what you asked, what came back, what you changed. Milestone 7. -->
