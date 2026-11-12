@@ -138,3 +138,41 @@ give an answer or simply state there is no evidence.
      The whole reason the originals stay visible is so someone can see what you
      said before you knew the answer.
      ───────────────────────────────────────────────────────────────────────── -->
+
+---
+
+## Capstone
+
+Five criteria for the Shape A extension (run path, logging, failure handling),
+written before any capstone results exist.
+
+### 1. Run Path Reproducibility
+
+The application must successfully complete 3 out of 3 independent executions from a fresh checkout, following only the documented setup and execution steps in `RUNNING.md`. Each execution must complete without undocumented commands, source-code modifications, or manual fixes.
+
+**Why this target:** My setup steps are fully pinned and deterministic — exact dependency versions, a documented fix for the port conflict — so nothing in the procedure is left to chance. The Gemini free-tier API hasn't been flaky in my testing, so a fresh checkout failing would point to a real environment problem, not bad luck. That's why I expect all 3 of 3 to hold.
+
+---
+
+### 2. Logging Accuracy
+
+Across 10 execution attempts, 10 out of 10 records in `logs/runs.jsonl` must accurately reflect the execution outcome. Successful runs that invoke the model must contain non-null token usage values, failed runs must record `status: "error"`, and error records must not contain a successful response in the `output` field.
+
+**Why this target:** `generate.py::_record_tokens` is deliberately forgiving — if a model response is missing `usage_metadata`, it silently does nothing rather than erroring, so my own counters would just stay at zero. An answered run with zero tokens wouldn't mean nothing happened; it would mean the model was genuinely called and probably cost something real, but my own instrumentation missed it with no signal that it did. That's worse than a visible error, since my `What It Costs` numbers would be silently wrong instead of obviously broken. I don't want any real usage going unmeasured.
+
+---
+
+### 3. Failure Record Accuracy
+
+The application must correctly record 3 out of 3 distinct execution failures in `logs/runs.jsonl`. Each record must contain `status: "error"`, a nonempty error description identifying the actual failure, and no misleading successful output.
+
+**Why this target:** This criterion's job is specifically that the record itself is correct — whether the exception also reaches the caller is Criterion 5's job, not this one's. A blank error description or the wrong exception type would mean I can't tell what actually broke from the log alone. When I diagnose a miss in Milestone 6, a bad record means re-running and guessing instead of reading the answer straight off the log — which costs real, avoidable API usage I'd rather not spend finding out what the log should have told me the first time.
+
+---
+
+### 4. Invalid Input Handling
+
+The application must appropriately handle 3 out of 3 distinct invalid-input cases — a whitespace-only question, a nonexistent corpus, and a missing required argument to `retrieve` (e.g. `python app.py retrieve` with no question). Each case must produce an observable rejection or failure outcome consistent with the application's documented behavior, without generating a misleading successful answer.
+
+**Why this target:** These three fail at three different layers rather than testing the same layer three times. A whitespace-only question passes argument parsing and reaches `ask_pipeline`, but fails at the embedding/gate stage (it gets a high distance and is refused). A nonexistent corpus also reaches `ask_pipeline`, but fails at the storage layer (no index found). A missing required argument to `retrieve` never gets that far — it's rejected by argument parsing itself, before `ask_pipeline` or any logging runs at all. I want to know bad input gets caught no matter which layer it would naturally break at, not just that one layer handles it well.
+
