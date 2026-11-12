@@ -357,15 +357,81 @@ Shape A — Deploy and Instrument. I'm adding a logging module that writes one J
 
 **Running It**
 
-<!-- Path B: the one documented local command, from RUNNING.md. Milestone 3. -->
+Path B — local, with logs. From a clean clone:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # paste your GEMINI_API_KEY in
+python test.py                # confirms setup
+python app.py index
+PORT=5050 python serve.py
+```
+
+`PORT=5050` instead of the default 5000 because on my machine port 5000 is held by macOS's AirPlay Receiver, not by anything in this project — see `RUNNING.md` for the note. Full details (Python version, pinned dependencies, env vars, model files) are in `RUNNING.md`; I tested that file on a clean environment before relying on it here, and it worked without changes.
+
+Then, from another terminal:
+
+```bash
+curl http://localhost:5050/health
+curl -X POST http://localhost:5050/ask \
+  -H 'Content-Type: application/json' \
+  -d '{"question": "is the housing lottery random?"}'
+```
+
+The same pipeline is also reachable without the server, with `python app.py ask "..."` — both paths log through the same function (`app.py::ask_pipeline`), so neither one can drift out of step with the other.
 
 **Instrumentation**
 
-<!-- Fields in each log record, log file location, ≥10 real entries pasted as text, ≥1 failed run. Milestone 3. -->
+Every call to `ask_pipeline` — CLI or `/ask` — writes one JSON line to `logs/runs.jsonl` via `logging_util.py::log_run`. Fields: `timestamp`, `run_id`, `corpus`, `input` (the question), `output` (the answer, null on error), `duration_ms`, `status` (`ok`/`error`), `refused`, `sources`, `best_distance`, `threshold`, `model`, `input_tokens`, `output_tokens`, `error_type`, `error_message`.
+
+11 real entries, pasted from `logs/runs.jsonl`: five answered questions, five refused by the gate, and one deliberately triggered failure.
+
+```
+{"timestamp": "2026-11-12T06:22:36Z", "run_id": "674008a793b9", "corpus": "campus_life", "input": "what's the workload like in BIO160", "output": "Students say the workload for BIOL 160 Cell Biology is 9 to 11 hours a week in real time, making it the heaviest first-year course by reputation. They also note that the workload is front-loaded, with the first month being heavier than the rest as students learn the format (sourced from *course_biol_160_workload.txt* and *course_biol_160.txt*).", "duration_ms": 9912.4, "status": "ok", "refused": false, "sources": ["course_biol_160.txt", "course_biol_160_workload.txt", "course_econ_101_workload.txt", "course_engl_205_workload.txt", "course_phys_130_workload.txt"], "best_distance": 0.4427, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 602, "output_tokens": 95, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-12T06:22:39Z", "run_id": "6424f7c2c696", "corpus": "campus_life", "input": "when is the atrium open?", "output": "Students say that The Atrium's hours are 8:00am to 6:00pm weekdays (dining_the_atrium.txt).", "duration_ms": 1868.4, "status": "ok", "refused": false, "sources": ["dining_halden_hall_followup.txt", "dining_north_kitchen_followup.txt", "dining_the_atrium.txt", "dining_the_atrium_followup.txt"], "best_distance": 0.378, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 621, "output_tokens": 34, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-12T06:22:42Z", "run_id": "f48991eaa0c7", "corpus": "campus_life", "input": "how is campus orientation?", "output": "Students say that most of orientation week is optional even though it is framed otherwise, with the only worthwhile sessions being the meeting with your academic adviser and the library walkthrough. They also note that the club fair is genuinely useful, though you only need about forty minutes of it. (Source: orientation_what_matters.txt)", "duration_ms": 2368.0, "status": "ok", "refused": false, "sources": ["housing_aldridge_hall.txt", "housing_tamsin_court.txt", "orientation_what_matters.txt", "transit_shuttle.txt", "transit_walking.txt"], "best_distance": 0.5288, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 548, "output_tokens": 66, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-12T06:22:53Z", "run_id": "7c76715b11db", "corpus": "campus_life", "input": "how much does laundry cost in aldridge?", "output": "Students say that laundry in Aldridge Hall costs $1.75 for a wash and $1.50 for a dry (housing_aldridge_hall.txt and housing_aldridge_hall_laundry.txt).", "duration_ms": 9995.7, "status": "ok", "refused": false, "sources": ["housing_aldridge_hall.txt", "housing_aldridge_hall_laundry.txt", "housing_calder_annexe.txt", "housing_old_brewhouse.txt", "housing_old_brewhouse_laundry.txt"], "best_distance": 0.2642, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 594, "output_tokens": 48, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-12T06:22:58Z", "run_id": "b90b2891f795", "corpus": "campus_life", "input": "when is it cold on campus?", "output": "Students say it is cold from mid-November to early March, with about three weeks in January where it stays below freezing all day (*winter_gear.txt*).", "duration_ms": 4234.3, "status": "ok", "refused": false, "sources": ["dining_verrill_street_grill.txt", "housing_aldridge_hall.txt", "transit_shuttle.txt", "transit_walking.txt", "winter_gear.txt"], "best_distance": 0.3775, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 551, "output_tokens": 34, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-12T06:22:59Z", "run_id": "003bcac355be", "corpus": "campus_life", "input": "What is the capital of Mongolia?", "output": "I don't have enough information about that.", "duration_ms": 842.5, "status": "ok", "refused": true, "sources": [], "best_distance": 0.8246, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-12T06:23:01Z", "run_id": "5e77bd59615e", "corpus": "campus_life", "input": "How do I change the oil in a diesel engine?", "output": "I don't have enough information about that.", "duration_ms": 881.9, "status": "ok", "refused": true, "sources": [], "best_distance": 0.9231, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-12T06:23:03Z", "run_id": "53200faccdb1", "corpus": "campus_life", "input": "Who won the 1994 World Cup?", "output": "I don't have enough information about that.", "duration_ms": 839.9, "status": "ok", "refused": true, "sources": [], "best_distance": 0.8859, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-12T06:23:05Z", "run_id": "cb31783ab7b2", "corpus": "campus_life", "input": "What is the recommended dosage of ibuprofen for a headache?", "output": "I don't have enough information about that.", "duration_ms": 844.9, "status": "ok", "refused": true, "sources": [], "best_distance": 0.8487, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-12T06:23:06Z", "run_id": "839329be6f5b", "corpus": "campus_life", "input": "How do I write a for loop in Rust?", "output": "I don't have enough information about that.", "duration_ms": 843.8, "status": "ok", "refused": true, "sources": [], "best_distance": 0.8635, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-12T06:27:39Z", "run_id": "f91678c92a14", "corpus": "nonexistent_corpus", "input": "is the housing lottery random?", "output": null, "duration_ms": 159.1, "status": "error", "refused": null, "sources": [], "best_distance": null, "threshold": null, "model": null, "input_tokens": null, "output_tokens": null, "error_type": "RuntimeError", "error_message": "No index called 'nonexistent_corpus__default'. Run `python app.py index` first."}
+```
+
+The failure row above was triggered with a real, documented command — `python app.py --corpus nonexistent_corpus ask "is the housing lottery random?"` — which exits with status 1 and prints the same `RuntimeError` that's logged.
 
 **What It Costs**
 
-<!-- Measured per-run cost, method, 100/day arithmetic. Milestone 3 / 7. -->
+Measured, not estimated: I ran the system 10 times — my 5 `QUESTIONS` and the 5 `OUT_OF_SCOPE` questions from `questions.py` — with `AI201_CACHE=0` so every run was a real call, not a cached repeat. `input_tokens`/`output_tokens` in each log record come straight off the model's own response (`generate.py::_record_tokens`), not a guess.
+
+The course runs on Gemini's free tier, so my actual spend was $0.00. To get a dollar figure that means something beyond "free," I multiplied the measured tokens by the published **paid-tier** rate for `gemini-3.5-flash-lite` ($0.30 / 1M input tokens, $2.50 / 1M output tokens, from `aistudio.google.com/docs/pricing` as of November 2026) — that's the "measured tokens × published rate" method the assignment allows, and I'm saying so.
+
+| | input tokens | output tokens | cost at paid-tier rate |
+|---|---|---|---|
+| 5 answered questions | 2,916 | 277 | $0.001567 |
+| 5 refused (gate, no model call) | 0 | 0 | $0.000000 |
+| **All 10 runs, averaged** | | | **$0.000157 / run** |
+| Answered runs only, averaged | | | $0.000313 / run |
+
+Average latency across the same 10 runs: **3,263 ms**. Refusals average ~850ms (no model call); answered questions range from about 1.9s to 10s, dominated by the model call itself.
+
+**100 people/day arithmetic**, assuming 1 question per person per day and the same 50/50 answered/refused mix as my test set:
+
+```
+$0.000157/run × 100 runs/day = $0.0157/day ≈ $0.47/month
+```
+
+If every one of the 100 is an answered (non-refused) question instead:
+
+```
+$0.000313/run × 100 runs/day = $0.0313/day ≈ $0.94/month
+```
+
+Either way, cost is negligible at this scale — latency, not price, is the thing worth watching if this were real traffic.
 
 **Run Log and Verdicts**
 

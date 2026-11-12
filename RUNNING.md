@@ -206,6 +206,30 @@ python serve.py                    # locally, on port 5000
 gunicorn serve:app                 # the way a host starts it
 ```
 
+> **On this machine, port 5000 is taken by macOS's AirPlay Receiver**, not by
+> anything in this project — `serve.py` fails with "Address already in use"
+> and names the cause itself. Rather than turning AirPlay Receiver off, the
+> capstone run command for this repo uses a different port:
+>
+> ```bash
+> PORT=5050 python serve.py
+> ```
+>
+> ```bash
+> curl http://localhost:5050/health
+> curl -X POST http://localhost:5050/ask \
+>   -H 'Content-Type: application/json' \
+>   -d '{"question": "is the housing lottery random?"}'
+> ```
+
+**Environment, for the capstone (unit 9) writeup:**
+
+- **Python:** 3.11, 3.12, or 3.13 (not 3.14 — see `requirements.txt`). Tested on 3.13.15.
+- **Dependencies:** pinned with lower and upper bounds in `requirements.txt` (`pip install -r requirements.txt`): `python-dotenv`, `chromadb`, `posthog`, `google-genai`, `rank-bm25`, `flask`, `gunicorn`.
+- **Env vars:** `GEMINI_API_KEY` (required — names only here, never the value; copy `.env.example` to `.env` and paste it there), `AI201_CORPUS` (optional), `AI201_CACHE` (optional, set to `0` to force every call to be a real API call instead of a cached repeat), `PORT` (optional, see the AirPlay note above).
+- **Model files:** the embedding model (`all-MiniLM-L6-v2`, ~80 MB) downloads automatically from Chroma's own CDN on first `index` or `test.py` run — no manual download step, no separate file to track. The Chroma index itself (`chroma_db/`) is rebuilt locally by `python app.py index` and isn't committed.
+- **Tested on a clean environment:** fresh venv, `pip install -r requirements.txt`, `python test.py` (10/10 passed), `python app.py index`, `PORT=5050 python serve.py` — all ran with no changes needed.
+
 | Thing | What it does |
 |---|---|
 | `POST /ask` | Send `{"question": "..."}`, get the answer and its sources back as JSON |
