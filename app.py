@@ -198,41 +198,81 @@ def ask_pipeline(
     decision as soon as it's made, and `on_prompt` is handed the assembled
     prompt just before it goes out — that's how `--show-prompt` shows you the
     prompt while the model is still thinking rather than after.
+
+    Capstone (Unit 9): every call — CLI or `serve.py` — writes one structured
+    record to `logs/runs.jsonl` through `logging_util.log_run`, timed from
+    here to the return (or the raise). This is the one place both entry
+    points share, so it's the one place that logs.
     """
     from store import search
     import gate
-    from generate import answer_from_chunks, build_prompt
+    from generate import answer_from_chunks, build_prompt, token_counts
+    import logging_util
 
-    results = search(
-        question,
-        top_k=top_k or config.TOP_K,
+    run_id = logging_util.new_run_id()
+    started = time.perf_counter()
+    tokens_before = token_counts()
+
+    try:
+        results = search(
+            question,
+            top_k=top_k or config.TOP_K,
+            corpus=corpus or config.CORPUS,
+            variant=variant,
+        )
+        decision = gate.check(results, threshold=threshold)
+        if on_gate is not None:
+            on_gate(decision)
+
+        outcome = {
+            "question": question,
+            "refused": not decision.passed,
+            "best_distance": decision.best_distance,
+            "threshold": decision.threshold,
+            "sources": [],
+            "prompt": None,
+        }
+
+        if not decision.passed:
+            outcome["answer"] = gate.REFUSAL
+        else:
+            prompt = build_prompt(question, results)
+            if on_prompt is not None:
+                on_prompt(prompt)
+
+            outcome["prompt"] = prompt
+            outcome["answer"] = answer_from_chunks(question, results)
+            outcome["sources"] = sorted({r.source for r in results})
+    except Exception as exc:
+        duration_ms = (time.perf_counter() - started) * 1000
+        logging_util.log_run(
+            run_id=run_id,
+            corpus=corpus or config.CORPUS,
+            question=question,
+            duration_ms=duration_ms,
+            status="error",
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+        )
+        raise
+
+    duration_ms = (time.perf_counter() - started) * 1000
+    tokens_after = token_counts()
+    logging_util.log_run(
+        run_id=run_id,
         corpus=corpus or config.CORPUS,
-        variant=variant,
+        question=question,
+        duration_ms=duration_ms,
+        status="ok",
+        answer=outcome["answer"],
+        refused=outcome["refused"],
+        sources=outcome["sources"],
+        best_distance=outcome["best_distance"],
+        threshold=outcome["threshold"],
+        model=config.MODEL,
+        input_tokens=tokens_after["prompt"] - tokens_before["prompt"],
+        output_tokens=tokens_after["output"] - tokens_before["output"],
     )
-    decision = gate.check(results, threshold=threshold)
-    if on_gate is not None:
-        on_gate(decision)
-
-    outcome = {
-        "question": question,
-        "refused": not decision.passed,
-        "best_distance": decision.best_distance,
-        "threshold": decision.threshold,
-        "sources": [],
-        "prompt": None,
-    }
-
-    if not decision.passed:
-        outcome["answer"] = gate.REFUSAL
-        return outcome
-
-    prompt = build_prompt(question, results)
-    if on_prompt is not None:
-        on_prompt(prompt)
-
-    outcome["prompt"] = prompt
-    outcome["answer"] = answer_from_chunks(question, results)
-    outcome["sources"] = sorted({r.source for r in results})
     return outcome
 
 
