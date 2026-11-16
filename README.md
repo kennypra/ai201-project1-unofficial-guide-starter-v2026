@@ -433,6 +433,17 @@ $0.000313/run × 100 runs/day = $0.0313/day ≈ $0.94/month
 
 Either way, cost is negligible at this scale — latency, not price, is the thing worth watching if this were real traffic.
 
+**Cost finalization (through Milestone 6):** the projections above still use the original, controlled 10-run sample — that's the right basis for a per-question estimate, since it wasn't run back-to-back with dozens of other calls. But `logs/runs.jsonl` now holds every real run from this entire capstone, not just that sample, so here's the true total measured so far, same method (measured tokens × published paid-tier rate), no estimating:
+
+| | count | input tokens | output tokens | cost at paid-tier rate |
+|---|---|---|---|---|
+| Answered (real model calls) | 20 | 11,664 | 1,180 | $0.006449 |
+| Refused (gate, no model call) | 21 | 0 | 0 | $0.000000 |
+| Errors (failed before/at the model call) | 4 | 0 | 0 | $0.000000 |
+| **Total, all testing through M6** | **45** | **11,664** | **1,180** | **$0.006449** |
+
+That's the full real cost of building and testing this capstone — every fresh-checkout run, every logging-accuracy batch, every deliberately triggered failure — at paid-tier rates. On the free tier it was still $0.00. One honest anomaly in the data: one refused run (a whitespace-only question, run immediately after three back-to-back 10-question batches) logged a 25.7s duration where refusals are normally under a second. I don't have a confirmed explanation for that single outlier — I'm reporting it rather than smoothing it over — and it didn't change any verdict, since gate refusals don't depend on timing.
+
 **Run Log and Verdicts**
 
 Four criteria, three runs each. For criteria 1 and 2, "three runs" means the whole documented procedure run three separate times, changing nothing between them. For criteria 3 and 4, it means three distinct triggers — repeating the same one three times wouldn't test anything the first run didn't.
@@ -550,8 +561,20 @@ The verdict didn't move — every real answered run already had genuine nonzero 
 
 **What's Still Broken**
 
-<!-- Per remaining miss: what you'd do, why you stopped. Plus the one thing you'd do next with another unit, and why. Milestone 7. -->
+None of my 4 capstone criteria came back missed, so this isn't a diagnosis of a failing number — it's a gap none of them were written to catch in the first place.
+
+**The relevance threshold is one global number, not per-corpus.** `config.THRESHOLD` is a single fixed value, applied to every corpus the same way. It was set in Milestone 4 against `campus_life`'s own distance distribution — the gap between `OUT_OF_SCOPE` and in-scope questions' `best_distance` on this specific corpus. Nothing in the code ties that number to `campus_life` specifically: switch `--corpus` to anything else and the same threshold applies regardless of how that corpus's own embeddings are actually distributed.
+
+**Why it matters:** a threshold tuned on one corpus only really holds for that corpus. Any other corpus swapped in inherits a cutoff it was never checked against, so the system isn't reliably generalizable beyond `campus_life` as it currently stands — and that's the opposite of what Criterion 1 (Run Path Reproducibility) is supposed to buy you, since "runs the same way every time" isn't the same as "runs *correctly* on a different corpus."
+
+**What I'd do about it:** stop storing the threshold as one shared constant in `config.py`, and calculate it per corpus instead — the same distance-gap process from Milestone 4, run once per corpus and stored alongside that corpus's own index.
+
+**Why I stopped here:** that calibration step is its own piece of work, roughly the size of Milestone 4 repeated for every corpus. This capstone's scope was the operational layer — run path, logging, cost — not re-tuning retrieval quality, so I left it as a known limitation.
+
+**The one thing I'd do next with another unit:** build a small per-corpus calibration step into `app.py index`. Indexing already touches every chunk once; that's the natural place to also sample a handful of known in/out-of-scope-style queries and derive a starting threshold automatically, instead of requiring a human to eyeball distances by hand when a new corpus gets added.
 
 **How I Used AI**
 
-<!-- Two specific moments from the capstone work: what you asked, what came back, what you changed. Milestone 7. -->
+**1.** For Milestone 4, I asked Claude to write the "why this target" reasoning for my capstone criteria. It refused three times, the same way: it said the point of the exercise was that the reasoning be mine, not that it had been permitted to skip it. It offered guided questions instead. That pattern held into Milestone 6: when I told it to just decide the fix for Criterion 2's token check, it refused again, but narrowed its own question down to two things I could answer in a few words.
+
+**2.** For Milestone 5, I needed three distinct failure triggers for Criterion 3 rather than reusing the same corpus-not-found error three times. I asked Claude to find two more, and instead of guessing at what would fail, it tested candidates for real: `--top-k -1` to see what ChromaDB itself raises on a bad argument (a `TypeError`, at the retrieval stage), and a throwaway, invalid `GEMINI_API_KEY` passed only as a one-off environment variable — never written to `.env` — to see what the Gemini API itself raises on bad credentials (a `ClientError`, at the generation stage). It checked the actual logged record each one produced before I used either as evidence.
