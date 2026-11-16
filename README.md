@@ -435,11 +435,118 @@ Either way, cost is negligible at this scale — latency, not price, is the thin
 
 **Run Log and Verdicts**
 
-<!-- Baseline 5x3 table, pasted real output per criterion with file + function, MET/MISSED, diagnoses. Milestone 5 / 6. -->
+Four criteria, three runs each. For criteria 1 and 2, "three runs" means the whole documented procedure run three separate times, changing nothing between them. For criteria 3 and 4, it means three distinct triggers — repeating the same one three times wouldn't test anything the first run didn't.
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| 1. Run Path Reproducibility | 3/3 fresh checkouts, `RUNNING.md` only | Fresh checkout, `python test.py` 10/10, `index`, `ask` → correct answer, exit 0 | Same procedure, independent checkout → exit 0 | Same procedure, independent checkout → exit 0 | **MET (3/3)** |
+| 2. Logging Accuracy | 10/10 records accurate per batch | Batch of 10 (`AI201_CACHE=0`): 10/10 | Batch of 10: 10/10 | Batch of 10: 10/10 | **MET (3/3 batches, 30/30 records)** |
+| 3. Failure Record Accuracy | 3/3 distinct failures recorded correctly | Nonexistent corpus → `RuntimeError` logged accurately | `--top-k -1` → `TypeError` logged accurately | Invalid API key → `ClientError` logged accurately | **MET (3/3)** |
+| 4. Invalid Input Handling | 3/3 distinct invalid inputs handled | Whitespace-only question → refused by gate, no misleading answer | Nonexistent corpus → `RuntimeError`, exit 1 | Missing `retrieve` argument → rejected by argparse, exit 2 | **MET (3/3)** |
+
+All four criteria held on every trial. Nothing below is a diagnosis of a miss — there wasn't one — just the real output each verdict is based on.
+
+---
+
+**Criterion 1 — Run Path Reproducibility.** Ran the setup in `RUNNING.md` three separate times, each in its own fresh checkout (new `.venv`, `pip install -r requirements.txt`, `.env` with the real key, nothing else touched) against Python 3.13.15 — the version `RUNNING.md` says this was tested on. Pasted output is from the first of the three; the other two matched in substance (same pass count, same answer content, independently-worded since caching is off by default for first-ever questions in a fresh `.venv`).
+
+Produced by `test.py`, then `app.py::cmd_index` / `app.py::cmd_ask` (→ `app.py::ask_pipeline`):
+
+```
+AI201 environment check
+------------------------------------------------------------
+[PASS] Python version          3.13.15 on Darwin
+[PASS] Virtual environment     .venv
+[PASS] Pinned packages         all 7 import cleanly
+[PASS] Free disk space         21.6 GB
+[PASS] Memory                  8.0 GB
+[PASS] Key hygiene             .env is ignored by git
+[PASS] API key                 loaded, 53 characters
+[PASS] Embedding model         all-MiniLM-L6-v2 loaded, 384-dim vectors
+[PASS] Vector store             Chroma round trip on a cosine collection
+[PASS] Model call              gemini-3.5-flash-lite replied "Ready."
+------------------------------------------------------------
+10 passed, 0 failed, 0 to look at, 0 skipped
+
+Corpus: campus_life
+  loaded   88 documents, 27,908 characters, ~317 characters per document
+  chunked  115 chunks, 248 characters on average, produced by chunker.py::split_documents
+  stored   115 chunks in 209.4s
+Ready. Try: python app.py ask "your question here"
+
+  (best distance 0.254, cutoff 0.6)
+Students say the housing lottery is not random in the way most people assume: rising sophomores get
+a number drawn at random, but juniors and seniors are ordered by accumulated credit hours first, with
+random tie-breaking used only for ties. (Source: admin_housing_lottery.txt)
+Sources retrieved: admin_housing_lottery.txt, admin_parking_permits.txt, advising_registration.txt,
+housing_innisfree_hall.txt, housing_morrow_house.txt
+1 model calls this session, 679 tokens (620 in, 59 out)
+```
+
+**Criterion 2 — Logging Accuracy.** Ran the same 10-question batch (my 5 `QUESTIONS` + the 5 `OUT_OF_SCOPE` questions from `questions.py`) three separate times with `AI201_CACHE=0`, through `app.py::ask_pipeline` → `logging_util.py::log_run`. Checked every one of the 30 resulting records against the criterion's own rule: an answered run needs non-null, nonzero token counts; a refused run is fine at zero; no record claims success and failure at once. All 30 passed. Pasted below is the first batch of 10 (the other two batches are the same shape — 5 answered with varying real token counts, 5 refused at zero):
+
+```
+{"timestamp": "2026-11-16T22:36:53Z", "run_id": "2a2b424e99e2", "corpus": "campus_life", "input": "what's the workload like in BIO160", "output": "Students say the workload for BIOL 160 Cell Biology is 9 to 11 hours a week, and it is considered the heaviest first-year course by reputation (source: `course_biol_160_workload.txt` and `course_biol_160.txt`). Students also note that it is front-loaded, meaning the first month is heavier than the rest partly because you are learning the format (source: `course_biol_160_workload.txt`).", "duration_ms": 7023.8, "status": "ok", "refused": false, "sources": ["course_biol_160.txt", "course_biol_160_workload.txt", "course_econ_101_workload.txt", "course_engl_205_workload.txt", "course_phys_130_workload.txt"], "best_distance": 0.4427, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 602, "output_tokens": 111, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-16T22:36:54Z", "run_id": "33275b75a18d", "corpus": "campus_life", "input": "when is the atrium open?", "output": "Students say that The Atrium's hours are 8:00am to 6:00pm on weekdays (*dining_the_atrium.txt*).", "duration_ms": 1024.7, "status": "ok", "refused": false, "sources": ["dining_halden_hall_followup.txt", "dining_north_kitchen_followup.txt", "dining_the_atrium.txt", "dining_the_atrium_followup.txt"], "best_distance": 0.378, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 621, "output_tokens": 36, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-16T22:36:55Z", "run_id": "782c5ee1960f", "corpus": "campus_life", "input": "how is campus orientation?", "output": "Students say that most of orientation week is optional even though it is framed otherwise, and that the only sessions worth attending are the meeting with your academic adviser and the library walkthrough. Students also note that the club fair is genuinely useful, though you only need the first forty minutes of the four-hour event (orientation_what_matters.txt).", "duration_ms": 898.6, "status": "ok", "refused": false, "sources": ["housing_aldridge_hall.txt", "housing_tamsin_court.txt", "orientation_what_matters.txt", "transit_shuttle.txt", "transit_walking.txt"], "best_distance": 0.5288, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 548, "output_tokens": 70, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-16T22:37:01Z", "run_id": "a8e936a48a43", "corpus": "campus_life", "input": "how much does laundry cost in aldridge?", "output": "Students say that laundry in Aldridge Hall costs $1.75 to wash and $1.50 to dry (housing_aldridge_hall_laundry.txt and housing_aldridge_hall.txt).", "duration_ms": 5651.6, "status": "ok", "refused": false, "sources": ["housing_aldridge_hall.txt", "housing_aldridge_hall_laundry.txt", "housing_calder_annexe.txt", "housing_old_brewhouse.txt", "housing_old_brewhouse_laundry.txt"], "best_distance": 0.2642, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 594, "output_tokens": 46, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-16T22:37:10Z", "run_id": "b5b80feb0e58", "corpus": "campus_life", "input": "when is it cold on campus?", "output": "Students say it is cold from mid-November to early March, with about three weeks in January where it stays below freezing all day (*winter_gear.txt*).", "duration_ms": 9538.1, "status": "ok", "refused": false, "sources": ["dining_verrill_street_grill.txt", "housing_aldridge_hall.txt", "transit_shuttle.txt", "transit_walking.txt", "winter_gear.txt"], "best_distance": 0.3775, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 551, "output_tokens": 34, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-16T22:37:14Z", "run_id": "5b4cefb0f369", "corpus": "campus_life", "input": "What is the capital of Mongolia?", "output": "I don't have enough information about that.", "duration_ms": 4059.7, "status": "ok", "refused": true, "sources": [], "best_distance": 0.8246, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-16T22:37:14Z", "run_id": "23552088b079", "corpus": "campus_life", "input": "How do I change the oil in a diesel engine?", "output": "I don't have enough information about that.", "duration_ms": 160.9, "status": "ok", "refused": true, "sources": [], "best_distance": 0.9231, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-16T22:37:15Z", "run_id": "4832f3979d5b", "corpus": "campus_life", "input": "Who won the 1994 World Cup?", "output": "I don't have enough information about that.", "duration_ms": 127.1, "status": "ok", "refused": true, "sources": [], "best_distance": 0.8859, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-16T22:37:15Z", "run_id": "21432e536f46", "corpus": "campus_life", "input": "What is the recommended dosage of ibuprofen for a headache?", "output": "I don't have enough information about that.", "duration_ms": 123.0, "status": "ok", "refused": true, "sources": [], "best_distance": 0.8487, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+{"timestamp": "2026-11-16T22:37:15Z", "run_id": "4d1c3a9c4195", "corpus": "campus_life", "input": "How do I write a for loop in Rust?", "output": "I don't have enough information about that.", "duration_ms": 88.8, "status": "ok", "refused": true, "sources": [], "best_distance": 0.8635, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+```
+
+**Criterion 3 — Failure Record Accuracy.** Three distinct failures, picked to break at three different stages of `app.py::ask_pipeline` rather than hit the same code path three times — produced by `store.py::search` (bad index), `store.py::search` → Chroma's own `collection.query` (bad argument), and `generate.py::generate` (bad credentials), each recorded by `logging_util.py::log_run`:
+
+```
+{"timestamp": "2026-11-16T22:35:57Z", "run_id": "df069731e0e7", "corpus": "nonexistent_corpus", "input": "is the housing lottery random?", "output": null, "duration_ms": 468.1, "status": "error", "refused": null, "sources": [], "best_distance": null, "threshold": null, "model": null, "input_tokens": null, "output_tokens": null, "error_type": "RuntimeError", "error_message": "No index called 'nonexistent_corpus__default'. Run `python app.py index` first."}
+{"timestamp": "2026-11-16T22:26:12Z", "run_id": "b13c00114858", "corpus": "campus_life", "input": "is the housing lottery random?", "output": null, "duration_ms": 1279.2, "status": "error", "refused": null, "sources": [], "best_distance": null, "threshold": null, "model": null, "input_tokens": null, "output_tokens": null, "error_type": "TypeError", "error_message": "Number of requested results -1, cannot be negative, or zero. in query."}
+{"timestamp": "2026-11-16T22:26:30Z", "run_id": "29dbb5f2ba8b", "corpus": "campus_life", "input": "what's the workload like in BIO160", "output": null, "duration_ms": 1854.0, "status": "error", "refused": null, "sources": [], "best_distance": null, "threshold": null, "model": null, "input_tokens": null, "output_tokens": null, "error_type": "ClientError", "error_message": "400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', 'status': 'INVALID_ARGUMENT', 'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'reason': 'API_KEY_INVALID', 'domain': 'googleapis.com', 'metadata': {'service': 'generativelanguage.googleapis.com'}}, {'@type': 'type.googleapis.com/google.rpc.LocalizedMessage', 'locale': 'en-US', 'message': 'API key not valid. Please pass a valid API key.'}]}}"}
+```
+
+Triggered with `python app.py --corpus nonexistent_corpus ask "is the housing lottery random?"`; `python app.py ask "is the housing lottery random?" --top-k -1`; and `GEMINI_API_KEY=invalid-test-key-12345 python app.py ask "what's the workload like in BIO160"` (a throwaway key passed only as an environment override for that one process — `.env` was never touched). Every record has `status: "error"`, a real exception name and message, and `output: null` — no record claims an answer it didn't give.
+
+**Criterion 4 — Invalid Input Handling.** Three distinct cases, picked to fail at three different layers:
+
+```
+$ python app.py ask "   "
+  (best distance 0.875, cutoff 0.6)
+I don't have enough information about that.
+0 model calls this session
+[exit 0 — reached ask_pipeline, refused by gate.py::check, same as the log line below]
+
+{"timestamp": "2026-11-16T22:35:50Z", "run_id": "b783276cde6e", "corpus": "campus_life", "input": "   ", "output": "I don't have enough information about that.", "duration_ms": 25672.4, "status": "ok", "refused": true, "sources": [], "best_distance": 0.875, "threshold": 0.6, "model": "gemini-3.5-flash-lite", "input_tokens": 0, "output_tokens": 0, "error_type": null, "error_message": null}
+
+$ python app.py --corpus nonexistent_corpus ask "is the housing lottery random?"
+RuntimeError: No index called 'nonexistent_corpus__default'. Run `python app.py index` first.
+0 model calls this session
+[exit 1 — reached ask_pipeline, failed in store.py::search, logged as run_id df069731e0e7 above]
+
+$ python app.py retrieve
+usage: app.py retrieve [-h] [--top-k TOP_K] question
+app.py retrieve: error: the following arguments are required: question
+[exit 2 — rejected by argparse before ask_pipeline runs at all; no log line, because no run happened]
+```
+
+The third case is deliberately the one with no log entry: it's evidence that bad input gets caught before the logged part of the pipeline even starts, not just inside it.
 
 **The Improvement**
 
-<!-- What changed, why, second 5x3 table, did it help. Milestone 6. -->
+Milestone 5 came back clean on all 4 criteria — nothing missed, so there was nothing to diagnose in the usual sense. The one real gap was in the criterion itself, not the system: Criterion 2's target said token usage values must be "non-null," but zero *is* non-null, so the target as written would not have caught the exact failure mode its own reasoning described — an answered run where `generate.py::_record_tokens` silently no-ops because the model's response was missing `usage_metadata`, leaving token counts at zero with no signal anything went wrong.
+
+**What changed:** `criteria.md`'s Criterion 2 target was revised from "non-null token usage values" to "token usage values greater than zero" (see the `> Revised in Milestone 6` block under Criterion 2). This is a tightening, not a loosening, and the original line stays in place above it per the unit 2 revision rule. No application code changed — the fix is to what counts as passing, not to the pipeline's behavior.
+
+**Did it help:** re-verified the same 30 real records from Milestone 5 (all three 10-question batches) against the tightened `>0` check. No new API calls were needed, since the fix changes the verification standard, not the system under test:
+
+| Batch | Records | Accurate under old (non-null) check | Accurate under new (>0) check |
+|---|---|---|---|
+| 1 | 10 | 10/10 | 10/10 |
+| 2 | 10 | 10/10 | 10/10 |
+| 3 | 10 | 10/10 | 10/10 |
+
+The verdict didn't move — every real answered run already had genuine nonzero token counts, so nothing that happened in Milestone 5 would have been missed by either version of the check. What changed is that the criterion itself is now actually capable of catching the failure it was written to catch. If a future run ever did trigger `_record_tokens`'s silent-failure path, the old target would have let it pass; the new one wouldn't.
 
 **What's Still Broken**
 

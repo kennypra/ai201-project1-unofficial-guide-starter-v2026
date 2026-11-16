@@ -160,13 +160,17 @@ Across 10 execution attempts, 10 out of 10 records in `logs/runs.jsonl` must acc
 
 **Why this target:** `generate.py::_record_tokens` is deliberately forgiving — if a model response is missing `usage_metadata`, it silently does nothing rather than erroring, so my own counters would just stay at zero. An answered run with zero tokens wouldn't mean nothing happened; it would mean the model was genuinely called and probably cost something real, but my own instrumentation missed it with no signal that it did. That's worse than a visible error, since my `What It Costs` numbers would be silently wrong instead of obviously broken. I don't want any real usage going unmeasured.
 
+> **Revised in Milestone 6:** Across 10 execution attempts, 10 out of 10 records in `logs/runs.jsonl` must accurately reflect the execution outcome. Successful runs that invoke the model must contain token usage values greater than zero, failed runs must record `status: "error"`, and error records must not contain a successful response in the `output` field.
+>
+> **Why revised:** It was from reading my own Milestone 4 reasoning during Milestone 5 — "non-null" doesn't actually catch the exact failure I said I cared about, since zero counts as non-null.
+
 ---
 
 ### 3. Failure Record Accuracy
 
 The application must correctly record 3 out of 3 distinct execution failures in `logs/runs.jsonl`. Each record must contain `status: "error"`, a nonempty error description identifying the actual failure, and no misleading successful output.
 
-**Why this target:** This criterion's job is specifically that the record itself is correct — whether the exception also reaches the caller is Criterion 5's job, not this one's. A blank error description or the wrong exception type would mean I can't tell what actually broke from the log alone. When I diagnose a miss in Milestone 6, a bad record means re-running and guessing instead of reading the answer straight off the log — which costs real, avoidable API usage I'd rather not spend finding out what the log should have told me the first time.
+**Why this target:** This criterion's job is specifically that the record itself is correct. A blank error description or the wrong exception type would mean I can't tell what actually broke from the log alone. When I diagnose a miss in Milestone 6, a bad record means re-running and guessing instead of reading the answer straight off the log — which costs real, avoidable API usage I'd rather not spend finding out what the log should have told me the first time.
 
 ---
 
