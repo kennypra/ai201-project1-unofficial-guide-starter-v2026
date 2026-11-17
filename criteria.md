@@ -180,3 +180,11 @@ The application must appropriately handle 3 out of 3 distinct invalid-input case
 
 **Why this target:** These three fail at three different layers rather than testing the same layer three times. A whitespace-only question passes argument parsing and reaches `ask_pipeline`, but fails at the embedding/gate stage (it gets a high distance and is refused). A nonexistent corpus also reaches `ask_pipeline`, but fails at the storage layer (no index found). A missing required argument to `retrieve` never gets that far — it's rejected by argument parsing itself, before `ask_pipeline` or any logging runs at all. I want to know bad input gets caught no matter which layer it would naturally break at, not just that one layer handles it well.
 
+---
+
+### 5. Exception Propagation
+
+In 3 out of 3 deliberately triggered failures, the exception raised inside `app.py::ask_pipeline` must still reach the caller after being logged — confirmed by the CLI exiting with a nonzero status, or `serve.py`'s `/ask` route returning a non-200 response, for each one.
+
+**Why this target:** Criterion 3 checks that the log record itself is correct, but a correct log record alone isn't enough if the exception never actually reaches whoever is running the system. Someone hitting `serve.py` over HTTP would see this as a hung or ambiguous response while the real error sits only in a file they're not watching, unless the exception also comes back through `/ask` itself. I want to confirm the log and the caller's own response actually agree, not just assume logging a failure guarantees the caller learns about it too.
+

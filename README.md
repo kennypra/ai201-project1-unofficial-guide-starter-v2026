@@ -446,7 +446,7 @@ That's the full real cost of building and testing this capstone — every fresh-
 
 **Run Log and Verdicts**
 
-Four criteria, three runs each. For criteria 1 and 2, "three runs" means the whole documented procedure run three separate times, changing nothing between them. For criteria 3 and 4, it means three distinct triggers — repeating the same one three times wouldn't test anything the first run didn't.
+Five criteria, three runs each. For criteria 1 and 2, "three runs" means the whole documented procedure run three separate times, changing nothing between them. For criteria 3 and 4, it means three distinct triggers — repeating the same one three times wouldn't test anything the first run didn't.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
@@ -454,6 +454,7 @@ Four criteria, three runs each. For criteria 1 and 2, "three runs" means the who
 | 2. Logging Accuracy | 10/10 records accurate per batch | Batch of 10 (`AI201_CACHE=0`): 10/10 | Batch of 10: 10/10 | Batch of 10: 10/10 | **MET (3/3 batches, 30/30 records)** |
 | 3. Failure Record Accuracy | 3/3 distinct failures recorded correctly | Nonexistent corpus → `RuntimeError` logged accurately | `--top-k -1` → `TypeError` logged accurately | Invalid API key → `ClientError` logged accurately | **MET (3/3)** |
 | 4. Invalid Input Handling | 3/3 distinct invalid inputs handled | Whitespace-only question → refused by gate, no misleading answer | Nonexistent corpus → `RuntimeError`, exit 1 | Missing `retrieve` argument → rejected by argparse, exit 2 | **MET (3/3)** |
+| 5. Exception Propagation | 3/3 failures reach the caller, not just the log | Nonexistent corpus → CLI exit 1 | `--top-k -1` → CLI exit 1 | Invalid API key → CLI exit 1 | **MET (3/3)** |
 
 All four criteria held on every trial. Nothing below is a diagnosis of a miss — there wasn't one — just the real output each verdict is based on.
 
@@ -542,6 +543,32 @@ app.py retrieve: error: the following arguments are required: question
 ```
 
 The third case is deliberately the one with no log entry: it's evidence that bad input gets caught before the logged part of the pipeline even starts, not just inside it.
+
+**Criterion 5 — Exception Propagation.** Criterion 3 checks that the log record itself is correct; this checks that the exception also reaches whoever is running the system, not just the log. Reused the same three triggers as Criterion 3, this time reading the exit code instead of the log line:
+
+```
+$ python app.py --corpus nonexistent_corpus ask "is the housing lottery random?"
+RuntimeError: No index called 'nonexistent_corpus__default'. Run `python app.py index` first.
+[exit 1]
+
+$ python app.py ask "is the housing lottery random?" --top-k -1
+TypeError: Number of requested results -1, cannot be negative, or zero. in query.
+[exit 1]
+
+$ GEMINI_API_KEY=invalid-test-key-demo python app.py ask "what's the workload like in BIO160"
+ClientError: 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...}}
+[exit 1]
+```
+
+Also checked the other half of the target — `serve.py`'s own HTTP response, not just the CLI — by starting it against the nonexistent corpus directly (`AI201_CORPUS=nonexistent_corpus python serve.py`) and hitting `/ask`:
+
+```
+$ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:5051/ask \
+    -H 'Content-Type: application/json' -d '{"question": "is the housing lottery random?"}'
+500
+```
+
+`serve.py::ask`'s own `except Exception` block (not something I had to add — it was already there) turns the same `RuntimeError` into a 500 with the error message in the body, matching the log record exactly. **MET (3/3)** — no code changes were needed for this criterion; the behavior already existed, it just hadn't been checked against a written target before.
 
 **The Improvement**
 
